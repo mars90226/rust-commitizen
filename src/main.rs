@@ -112,7 +112,7 @@ fn main() {
         .interact()
         .unwrap();
 
-    let final_commit_message = format!("{}({}): {}", conventional_commits[selection.unwrap()].class, scope, commit_message.to_lowercase());
+    let final_commit_message = format!("{}({}): {}", conventional_commits[selection.unwrap()].class, scope, commit_message);
 
     Command::new("git")
         .args(&["commit", "-m", &final_commit_message])
