@@ -1,5 +1,6 @@
 extern crate console;
 extern crate dialoguer;
+extern crate rustyline;
 
 use std::fmt;
 use std::process::Command;
@@ -83,6 +84,24 @@ impl fmt::Display for ConventionalCommitType {
     }
 }
 
+fn compose_commit_message(conventional_commit: &ConventionalCommitType, scope: &str, short_commit_message: &str, long_commit_message: &str) -> String {
+    let mut commit_message = format!("{}", conventional_commit.class);
+
+    if scope.is_empty() {
+        commit_message.push_str(": ");
+    } else {
+        commit_message.push_str(&format!("({}): ", scope));
+    }
+
+    commit_message.push_str(short_commit_message);
+
+    if !long_commit_message.is_empty() {
+        commit_message.push_str(&format!("\n\n{}", long_commit_message));
+    }
+
+    commit_message
+}
+
 fn main() {
     let input_theme = ColorfulTheme {
         values_style: Style::new().green().dim(),
@@ -104,18 +123,25 @@ fn main() {
 
     let scope: String = Input::with_theme(&input_theme)
         .with_prompt("What is the scope of this change")
+        .allow_empty(true)
         .interact()
         .unwrap();
 
-    let commit_message: String = Input::with_theme(&input_theme)
+    let short_commit_message: String = Input::with_theme(&input_theme)
         .with_prompt("Write a short commit message")
         .interact()
         .unwrap();
 
-    let final_commit_message = format!("{}({}): {}", conventional_commits[selection.unwrap()].class, scope, commit_message);
+    let long_commit_message: String = Input::with_theme(&input_theme)
+        .with_prompt("Write a long commit message")
+        .allow_empty(true)
+        .interact()
+        .unwrap();
+
+    let commit_message = compose_commit_message(&conventional_commits[selection.unwrap()], &scope, &short_commit_message, &long_commit_message);
 
     Command::new("git")
-        .args(&["commit", "-m", &final_commit_message])
+        .args(&["commit", "-m", &commit_message])
         .status()
         .expect("Failed to git commit");
 }
