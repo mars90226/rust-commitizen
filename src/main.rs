@@ -85,7 +85,7 @@ impl fmt::Display for ConventionalCommitType {
 }
 
 fn compose_commit_message(conventional_commit: &ConventionalCommitType, scope: &str, short_commit_message: &str, long_commit_message: &str) -> String {
-    let mut commit_message = format!("{}", conventional_commit.class);
+    let mut commit_message = conventional_commit.class.to_string();
 
     if scope.is_empty() {
         commit_message.push_str(": ");
