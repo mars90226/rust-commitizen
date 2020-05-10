@@ -6,8 +6,8 @@ use std::fmt;
 use std::process::Command;
 
 use console::Style;
-use dialoguer::{Input, Select};
 use dialoguer::theme::ColorfulTheme;
+use dialoguer::{Input, Select};
 
 #[derive(Clone)]
 struct ConventionalCommitType {
@@ -84,7 +84,12 @@ impl fmt::Display for ConventionalCommitType {
     }
 }
 
-fn compose_commit_message(conventional_commit: &ConventionalCommitType, scope: &str, short_commit_message: &str, long_commit_message: &str) -> String {
+fn compose_commit_message(
+    conventional_commit: &ConventionalCommitType,
+    scope: &str,
+    short_commit_message: &str,
+    long_commit_message: &str,
+) -> String {
     let mut commit_message = conventional_commit.class.to_string();
 
     if scope.is_empty() {
@@ -138,7 +143,12 @@ fn main() {
         .interact()
         .unwrap();
 
-    let commit_message = compose_commit_message(&conventional_commits[selection.unwrap()], &scope, &short_commit_message, &long_commit_message);
+    let commit_message = compose_commit_message(
+        &conventional_commits[selection.unwrap()],
+        &scope,
+        &short_commit_message,
+        &long_commit_message,
+    );
 
     Command::new("git")
         .args(&["commit", "-m", &commit_message])
