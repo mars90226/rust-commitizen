@@ -1,7 +1,3 @@
-extern crate console;
-extern crate dialoguer;
-extern crate rustyline;
-
 use std::fmt;
 use std::process::Command;
 
