@@ -5,6 +5,7 @@ use console::Style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 
+#[allow(dead_code)]
 #[derive(Clone)]
 struct ConventionalCommitType {
     class: &'static str,
