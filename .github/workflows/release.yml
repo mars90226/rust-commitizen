@@ -1,0 +1,116 @@
+name: release
+
+on: [push]
+
+jobs:
+  create-release:
+    name: Create release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+      pkg_version: ${{ env.PKG_VERSION }}
+    steps:
+      - name: Get the release version from the tag
+        shell: bash
+        if: env.PKG_VERSION == ''
+        run: |
+          echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "version is: ${{ env.PKG_VERSION }}"
+      - name: Create GitHub release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.PKG_VERSION }}
+          release_name: ${{ env.PKG_VERSION }}
+  
+  build-release:
+    name: Build release for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: create-release
+    env:
+      # For some builds, we use cross to test on 32-bit and big-endian
+      # systems.
+      CARGO: cargo
+      # When CARGO is set to CROSS, this is set to `--target matrix.target`.
+      TARGET_FLAGS: ""
+      # When CARGO is set to CROSS, TARGET_DIR includes matrix.target.
+      TARGET_DIR: ./target
+      # Emit backtraces on panics.
+      RUST_BACKTRACE: 1
+    strategy:
+      matrix:
+        build: [linux, linux-arm, macos, win-msvc, win-gnu, win32-msvc]
+        include:
+        - build: linux
+          os: ubuntu-18.04
+          target: x86_64-unknown-linux-musl
+        - build: linux-arm
+          os: ubuntu-18.04
+          target: arm-unknown-linux-gnueabihf
+        - build: macos
+          os: macos-latest
+          target: x86_64-apple-darwin
+        - build: win-msvc
+          os: windows-2019
+          rust: nightly
+          target: x86_64-pc-windows-msvc
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v1
+
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Use Cross
+        shell: bash
+        run: |
+          cargo install cross
+          echo "CARGO=cross" >> $GITHUB_ENV
+          echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
+          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
+
+      - name: Show command used for Cargo
+        run: |
+          echo "cargo command is: ${{ env.CARGO }}"
+          echo "target flag is: ${{ env.TARGET_FLAGS }}"
+          echo "target dir is: ${{ env.TARGET_DIR }}"
+
+      - name: Build release binary
+        run: ${{ env.CARGO }} build --verbose --release
+
+      - name: Strip release binary (linux and macos)
+        if: matrix.build == 'linux' || matrix.build == 'macos'
+        run: strip strip "target/${{ matrix.target }}/release/rust-commitizen"
+
+      - name: Build archive
+        shell: bash
+        run: |
+          staging="rust-commitizen-${{ needs.create-release.outputs.pkg_version }}-${{ matrix.target }}"
+          cp {README.md} "$staging/"
+          if [ "${{ matrix.os }}" = "windows-2019" ]; then
+            cp "target/${{ matrix.target }}/release/rust-commitizen.exe" "$staging/"
+            7z a "$staging.zip" "$staging"
+            echo "ASSET=$staging.zip" >> $GITHUB_ENV
+          else
+            cp "target/${{ matrix.target }}/release/rust-commitizen" "$staging/"
+            tar czf "$staging.tar.gz" "$staging"
+            echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Upload release archive
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream
